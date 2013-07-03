@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/MultiplayerLatencyTester.iml" filepath="$PROJECT_DIR$/MultiplayerLatencyTester.iml" />
+      <module fileurl="file://$PROJECT_DIR$/MultiplayerLatencyTester/MultiplayerLatencyTester-MultiplayerLatencyTester.iml" filepath="$PROJECT_DIR$/MultiplayerLatencyTester/MultiplayerLatencyTester-MultiplayerLatencyTester.iml" />
+    </modules>
+  </component>
+</project>
+
