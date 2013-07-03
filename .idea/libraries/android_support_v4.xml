@@ -2,6 +2,8 @@
   <library name="android-support-v4">
     <CLASSES>
       <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/libs/android-support-v4.jar!/" />
+      <root url="jar://$PROJECT_DIR$/BaseGameUtils/libs/android-support-v4.jar!/" />
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/BaseGameUtils.aar/libs/android-support-v4.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />

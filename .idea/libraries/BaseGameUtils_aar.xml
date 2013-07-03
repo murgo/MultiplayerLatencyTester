@@ -1,0 +1,18 @@
+<component name="libraryTable">
+  <library name="BaseGameUtils.aar">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/BaseGameUtils.aar/classes.jar!/" />
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/BaseGameUtils.aar/classes.jar!/" />
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/BaseGameUtils.aar/classes.jar!/" />
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/BaseGameUtils.aar/classes.jar!/" />
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/BaseGameUtils.aar/classes.jar!/" />
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/BaseGameUtils.aar/classes.jar!/" />
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/BaseGameUtils.aar/classes.jar!/" />
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/BaseGameUtils.aar/classes.jar!/" />
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/BaseGameUtils.aar/classes.jar!/" />
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/BaseGameUtils.aar/classes.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

@@ -66,6 +66,8 @@
     </content>
     <orderEntry type="jdk" jdkName="Android 4.2.2" jdkType="Android SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="BaseGameUtils.aar" level="project" />
+    <orderEntry type="module" module-name="BaseGameUtils" />
     <orderEntry type="library" name="android-support-v4" level="project" />
   </component>
 </module>
