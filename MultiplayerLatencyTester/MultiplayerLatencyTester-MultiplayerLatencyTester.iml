@@ -69,6 +69,7 @@
     <orderEntry type="library" name="BaseGameUtils.aar" level="project" />
     <orderEntry type="module" module-name="BaseGameUtils" />
     <orderEntry type="library" name="android-support-v4" level="project" />
+    <orderEntry type="library" name="google-play-services" level="project" />
   </component>
 </module>
 
