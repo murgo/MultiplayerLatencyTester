@@ -48,6 +48,8 @@
         <Button android:id="@+id/button_sign_out"
                 style="@style/SignOutButton"
                 android:text="@string/sign_out" />
+        <LinearLayout style="@style/ScoresBox" android:id="@+id/serverBox" android:orientation="vertical">
+        </LinearLayout>
     </LinearLayout>
 
     <!-- INVITATION POPUP -->

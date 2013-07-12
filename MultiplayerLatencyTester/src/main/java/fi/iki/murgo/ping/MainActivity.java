@@ -57,7 +57,10 @@ public class MainActivity extends BaseGameActivity
     String mIncomingInvitationId = null;
 
     // Message buffer for sending messages
-    byte[] mMsgBuf = new byte[16];
+    byte[] mMsgBuf = new byte[9];
+
+    private UdpPinger mUdpPinger;
+    private TcpPinger mTcpPinger;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -70,6 +73,50 @@ public class MainActivity extends BaseGameActivity
         }
 
         setSignInMessages(getString(R.string.signing_in), getString(R.string.signing_out));
+
+        PingCallback cb = new PingCallback() {
+            @Override
+            public void cb() {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        updateUi();
+                    }
+                });
+            }
+        };
+
+        mUdpPinger = new UdpPinger();
+        mUdpPinger.setCallback(cb);
+        mUdpPinger.open();
+
+        mTcpPinger = new TcpPinger();
+        mTcpPinger.setCallback(cb);
+        mTcpPinger.open();
+
+        final Handler h = new Handler();
+        h.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (mTcpPinger == null || mUdpPinger == null) {
+                    return;
+                }
+
+                pingServer();
+                h.postDelayed(this, 1000);
+            }
+        }, 1000);
+    }
+
+    private void pingServer() {
+        mTcpPinger.ping();
+        mUdpPinger.ping();
+        updateUi();
+    }
+
+    private void stopPingingServer() {
+        mTcpPinger.close();
+        mUdpPinger.close();
     }
 
     /**
@@ -249,6 +296,8 @@ public class MainActivity extends BaseGameActivity
     @Override
     public void onStop() {
         Log.d(TAG, "**** got onStop");
+
+        stopPingingServer();
 
         // if we're in a room, leave it.
         leaveRoom();
@@ -471,11 +520,11 @@ public class MainActivity extends BaseGameActivity
 
     // Current state of the game:
     private HashMap<String, ParticipantInfo> mParticipantInfos = new HashMap<String, ParticipantInfo>();
-    private boolean mPingReliable = true;
+    private PingMode mPingMode = PingMode.Reliable;
 
     // Reset game variables in preparation for a new game.
     void resetGameVars() {
-        mPingReliable = true;
+        mPingMode = PingMode.Reliable;
     }
 
     void startPinging() {
@@ -540,14 +589,55 @@ public class MainActivity extends BaseGameActivity
 
     private void updateUi() {
         TextView tvInstructions = (TextView) findViewById(R.id.instructions);
-        tvInstructions.setText(mPingReliable ? "Pinging: reliable" : "Pinging: unreliable");
+        if (!tvInstructions.isShown()) {
+            updateMainMenuUi();
+            return;
+        }
+
+        switch (mPingMode) {
+            case Reliable:
+                tvInstructions.setText("Pinging: reliable");
+                break;
+            case Unreliable:
+                tvInstructions.setText("Pinging: unreliable");
+                break;
+        }
 
         LinearLayout layout = (LinearLayout) findViewById(R.id.rttBox);
         layout.removeAllViews();
 
+        if (mUdpPinger != null) {
+            TextView tv = new TextView(this);
+            tv.setText("UDP to server: " + mUdpPinger.getInfo());
+            layout.addView(tv);
+        }
+
+        if (mTcpPinger != null) {
+            TextView tv = new TextView(this);
+            tv.setText("TCP to server: " + mTcpPinger.getInfo());
+            layout.addView(tv);
+        }
+
         for (ParticipantInfo p : mParticipantInfos.values()) {
             TextView tv = new TextView(this);
             tv.setText(p.participant.getDisplayName() + ": " + p.getReliableInfo() + ", " + p.getUnreliableInfo());
+            layout.addView(tv);
+        }
+    }
+
+    private void updateMainMenuUi() {
+        LinearLayout layout = (LinearLayout) findViewById(R.id.serverBox);
+        layout.removeAllViews();
+
+        if (mUdpPinger != null) {
+            TextView tv = new TextView(this);
+            tv.setText("UDP to server: " + mUdpPinger.getInfo());
+            layout.addView(tv);
+        }
+
+        if (mTcpPinger != null) {
+            TextView tv = new TextView(this);
+            tv.setText("TCP to server: " + mTcpPinger.getInfo());
             layout.addView(tv);
         }
     }
@@ -565,16 +655,20 @@ public class MainActivity extends BaseGameActivity
             if (p.participant.getStatus() != Participant.STATUS_JOINED)
                 continue;
 
-            if (mPingReliable) {
-                getGamesClient().sendReliableRealTimeMessage(null, mMsgBuf, mRoomId, p.participant.getParticipantId());
-                p.reliablePacketsSent++;
-            } else {
-                getGamesClient().sendUnreliableRealTimeMessage(mMsgBuf, mRoomId, p.participant.getParticipantId());
-                p.unreliablePacketsSent++;
+            switch (mPingMode) {
+                case Reliable:
+                    getGamesClient().sendReliableRealTimeMessage(null, mMsgBuf, mRoomId, p.participant.getParticipantId());
+                    p.reliablePacketsSent++;
+                    mPingMode = PingMode.Unreliable;
+                    break;
+                case Unreliable:
+                    getGamesClient().sendUnreliableRealTimeMessage(mMsgBuf, mRoomId, p.participant.getParticipantId());
+                    p.unreliablePacketsSent++;
+                    mPingMode = PingMode.Reliable;
+                    break;
             }
         }
 
-        mPingReliable = !mPingReliable;
         updateUi();
     }
 

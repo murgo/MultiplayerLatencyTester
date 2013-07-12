@@ -1,8 +1,12 @@
+gen/
 .gradle
 .idea/workspace.xml
 .idea/tasks.xml
-gen/
 .idea/dictionaries/
+PingServer/.idea/workspace.xml
+PingServer/.idea/tasks.xml
+PingServer/.idea/dictionaries/
+PingServer/out/
 
 #################
 ## Eclipse
