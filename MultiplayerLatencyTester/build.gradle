@@ -3,13 +3,14 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:0.4'
+        classpath 'com.android.tools.build:gradle:0.4.+'
     }
 }
 apply plugin: 'android'
 
 dependencies {
     compile project(':BaseGameUtils')
+    compile project(':google-play-services_lib')
 }
 
 android {

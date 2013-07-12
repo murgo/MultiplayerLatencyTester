@@ -3,6 +3,7 @@
     <CLASSES>
       <root url="jar://$PROJECT_DIR$/BaseGameUtils/build/exploded-bundles/google-play-services_lib.aar/classes.jar!/" />
       <root url="jar://$PROJECT_DIR$/BaseGameUtils/build/exploded-bundles/google-play-services_lib.aar/classes.jar!/" />
+      <root url="jar://$PROJECT_DIR$/MultiplayerLatencyTester/build/exploded-bundles/google-play-services_lib.aar/classes.jar!/" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />

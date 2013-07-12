@@ -18,7 +18,8 @@
       </configuration>
     </facet>
   </component>
-  <component name="NewModuleRootManager" inherit-compiler-output="true">
+  <component name="NewModuleRootManager" inherit-compiler-output="false">
+    <output url="file://$MODULE_DIR$/build/classes/debug" />
     <exclude-output />
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$/build/source/r/debug" isTestSource="false" />
@@ -69,6 +70,7 @@
     <orderEntry type="library" name="BaseGameUtils.aar" level="project" />
     <orderEntry type="module" module-name="BaseGameUtils" />
     <orderEntry type="library" name="android-support-v4" level="project" />
+    <orderEntry type="library" name="google-play-services_lib.aar" level="project" />
     <orderEntry type="library" name="google-play-services" level="project" />
   </component>
 </module>

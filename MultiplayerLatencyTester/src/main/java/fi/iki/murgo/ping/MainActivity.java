@@ -1,13 +1,5 @@
 package fi.iki.murgo.ping;
 
-import android.os.Bundle;
-import android.app.Activity;
-import android.view.Menu;
-import android.widget.TextView;
-
-import com.google.example.games.basegameutils.BaseGameActivity;
-
-
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
@@ -16,9 +8,9 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.google.android.gms.games.GamesActivityResultCodes;
 import com.google.android.gms.games.GamesClient;
 import com.google.android.gms.games.multiplayer.Invitation;
 import com.google.android.gms.games.multiplayer.OnInvitationReceivedListener;
@@ -31,30 +23,12 @@ import com.google.android.gms.games.multiplayer.realtime.RoomStatusUpdateListene
 import com.google.android.gms.games.multiplayer.realtime.RoomUpdateListener;
 import com.google.example.games.basegameutils.BaseGameActivity;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
-/**
- * Button Clicker 2000. A minimalistic game showing the multiplayer features of
- * the Google Play game services API. The objective of this game is clicking a
- * button. Whoever clicks the button the most times within a 20 second interval
- * wins. It's that simple. This game can be played with 2, 3 or 4 players. The
- * code is organized in sections in order to make understanding as clear as
- * possible. We start with the integration section where we show how the game
- * is integrated with the Google Play game services API, then move on to
- * game-specific UI and logic. INSTRUCTIONS: To run this sample, please set up
- * a project in the Developer Console. Then, place your app ID on
- * res/values/ids.xml. Also, change the package name to the package name you
- * used to create the client ID in Developer Console. Make sure you sign the
- * APK with the certificate whose fingerprint you entered in Developer Console
- * when creating your Client Id.
- *
- * @author Bruno Oliveira (btco), 2013-04-26
- */
 public class MainActivity extends BaseGameActivity
         implements View.OnClickListener, RealTimeMessageReceivedListener,
         RoomStatusUpdateListener, RoomUpdateListener, OnInvitationReceivedListener {
@@ -65,22 +39,15 @@ public class MainActivity extends BaseGameActivity
      */
 
     // Debug tag
-    final static String TAG = "ButtonClicker2000";
+    final static String TAG = "MultiplayerLatencyTester";
 
     // Request codes for the UIs that we show with startActivityForResult:
     final static int RC_SELECT_PLAYERS = 10000;
     final static int RC_INVITATION_INBOX = 10001;
-    final static int RC_WAITING_ROOM = 10002;
 
     // Room ID where the currently active game is taking place; null if we're
     // not playing.
     String mRoomId = null;
-
-    // Are we playing in multiplayer mode?
-    boolean mMultiplayer = false;
-
-    // The participants in the currently active game
-    ArrayList<Participant> mParticipants = null;
 
     // My participant ID in the currently active game
     String mMyId = null;
@@ -90,11 +57,7 @@ public class MainActivity extends BaseGameActivity
     String mIncomingInvitationId = null;
 
     // Message buffer for sending messages
-    byte[] mMsgBuf = new byte[2];
-
-    // flag indicating whether we're dismissing the waiting room because the
-    // game is starting
-    boolean mWaitRoomDismissedFromCode = false;
+    byte[] mMsgBuf = new byte[16];
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -147,17 +110,8 @@ public class MainActivity extends BaseGameActivity
         Intent intent;
 
         switch (v.getId()) {
-            case R.id.button_single_player:
-            case R.id.button_single_player_2:
-                resetGameVars();
-                startGame(false);
-                break;
             case R.id.button_sign_in:
                 // user wants to sign in
-                if (!verifyPlaceholderIdsReplaced()) {
-                    showAlert("Error", "Sample not set up correctly. Please see README.");
-                    return;
-                }
                 beginUserInitiatedSignIn();
                 break;
             case R.id.button_sign_out:
@@ -187,18 +141,12 @@ public class MainActivity extends BaseGameActivity
                 // user wants to play against a random opponent right now
                 startQuickGame();
                 break;
-            case R.id.button_click_me:
-                // (gameplay) user clicked the "click me" button
-                scoreOnePoint();
-                break;
         }
     }
 
     void startQuickGame() {
-        // quick-start a game with 1 randomly selected opponent
-        final int MIN_OPPONENTS = 1, MAX_OPPONENTS = 1;
-        Bundle autoMatchCriteria = RoomConfig.createAutoMatchCriteria(MIN_OPPONENTS,
-                MAX_OPPONENTS, 0);
+        final int MIN_OPPONENTS = 1, MAX_OPPONENTS = 3;
+        Bundle autoMatchCriteria = RoomConfig.createAutoMatchCriteria(MIN_OPPONENTS, MAX_OPPONENTS, 0);
         RoomConfig.Builder rtmConfigBuilder = RoomConfig.builder(this);
         rtmConfigBuilder.setMessageReceivedListener(this);
         rtmConfigBuilder.setRoomStatusUpdateListener(this);
@@ -210,8 +158,7 @@ public class MainActivity extends BaseGameActivity
     }
 
     @Override
-    public void onActivityResult(int requestCode, int responseCode,
-                                 Intent intent) {
+    public void onActivityResult(int requestCode, int responseCode, Intent intent) {
         super.onActivityResult(requestCode, responseCode, intent);
 
         switch (requestCode) {
@@ -223,32 +170,6 @@ public class MainActivity extends BaseGameActivity
                 // we got the result from the "select invitation" UI (invitation inbox). We're
                 // ready to accept the selected invitation:
                 handleInvitationInboxResult(responseCode, intent);
-                break;
-            case RC_WAITING_ROOM:
-                // ignore result if we dismissed the waiting room from code:
-                if (mWaitRoomDismissedFromCode) break;
-
-                // we got the result from the "waiting room" UI.
-                if (responseCode == Activity.RESULT_OK) {
-                    // player wants to start playing
-                    Log.d(TAG, "Starting game because user requested via waiting room UI.");
-
-                    // let other players know we're starting.
-                    broadcastStart();
-
-                    // start the game!
-                    startGame(true);
-                } else if (responseCode == GamesActivityResultCodes.RESULT_LEFT_ROOM) {
-                    // player actively indicated that they want to leave the room
-                    leaveRoom();
-                } else if (responseCode == Activity.RESULT_CANCELED) {
-                    /* Dialog was cancelled (user pressed back key, for
-                     * instance). In our game, this means leaving the room too. In more
-                     * elaborate games,this could mean something else (like minimizing the
-                     * waiting room UI but continue in the handshake process). */
-                    leaveRoom();
-                }
-
                 break;
         }
     }
@@ -362,7 +283,6 @@ public class MainActivity extends BaseGameActivity
     // Leave the room.
     void leaveRoom() {
         Log.d(TAG, "Leaving room.");
-        mSecondsLeft = 0;
         stopKeepingScreenOn();
         if (mRoomId != null) {
             getGamesClient().leaveRoom(this, mRoomId);
@@ -371,26 +291,6 @@ public class MainActivity extends BaseGameActivity
         } else {
             switchToMainScreen();
         }
-    }
-
-    // Show the waiting room UI to track the progress of other players as they enter the
-    // room and get connected.
-    void showWaitingRoom(Room room) {
-        mWaitRoomDismissedFromCode = false;
-
-        // minimum number of players required for our game
-        final int MIN_PLAYERS = 2;
-        Intent i = getGamesClient().getRealTimeWaitingRoomIntent(room, MIN_PLAYERS);
-
-        // show waiting room UI
-        startActivityForResult(i, RC_WAITING_ROOM);
-    }
-
-    // Forcibly dismiss the waiting room UI (this is useful, for example, if we realize the
-    // game needs to start because someone else is starting to play).
-    void dismissWaitingRoom() {
-        mWaitRoomDismissedFromCode = true;
-        finishActivity(RC_WAITING_ROOM);
     }
 
     // Called when we get an invitation to play a game. We react by showing that to the user.
@@ -419,13 +319,38 @@ public class MainActivity extends BaseGameActivity
 
         // get room ID, participants and my ID:
         mRoomId = room.getRoomId();
-        mParticipants = room.getParticipants();
+        createParticipantInfos(room);
         mMyId = room.getParticipantId(getGamesClient().getCurrentPlayerId());
 
         // print out the list of participants (for debug purposes)
         Log.d(TAG, "Room ID: " + mRoomId);
         Log.d(TAG, "My ID " + mMyId);
         Log.d(TAG, "<< CONNECTED TO ROOM>>");
+    }
+
+    private void createParticipantInfos(Room room) {
+        for (Participant p : room.getParticipants()) {
+            if (p.getStatus() == Participant.STATUS_JOINED) {
+                if (!mParticipantInfos.containsKey(p.getParticipantId())) {
+                    mParticipantInfos.put(p.getParticipantId(), new ParticipantInfo(p));
+                }
+            }
+        }
+
+        HashSet<String> keys = new HashSet<String>(mParticipantInfos.keySet());
+        for (String pi : keys) {
+            boolean found = false;
+            for (Participant p : room.getParticipants()) {
+                if (p.getStatus() == Participant.STATUS_JOINED && p.getParticipantId().equals(pi)) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                mParticipantInfos.remove(pi);
+            }
+        }
     }
 
     // Called when we've successfully left the room (this happens a result of voluntarily leaving
@@ -457,11 +382,7 @@ public class MainActivity extends BaseGameActivity
         if (statusCode != GamesClient.STATUS_OK) {
             Log.e(TAG, "*** Error: onRoomCreated, status " + statusCode);
             showGameError();
-            return;
         }
-
-        // show the waiting room UI
-        showWaitingRoom(room);
     }
 
     // Called when room is fully connected.
@@ -473,7 +394,9 @@ public class MainActivity extends BaseGameActivity
             showGameError();
             return;
         }
+
         updateRoom(room);
+        startPinging();
     }
 
     @Override
@@ -482,11 +405,7 @@ public class MainActivity extends BaseGameActivity
         if (statusCode != GamesClient.STATUS_OK) {
             Log.e(TAG, "*** Error: onRoomConnected, status " + statusCode);
             showGameError();
-            return;
         }
-
-        // show the waiting room UI
-        showWaitingRoom(room);
     }
 
     // We treat most of the room update callbacks in the same way: we update our list of
@@ -495,47 +414,55 @@ public class MainActivity extends BaseGameActivity
     // etc.
     @Override
     public void onPeerDeclined(Room room, List<String> arg1) {
+        Log.d(TAG, "onPeerDeclined(" + arg1.get(0) + ")");
         updateRoom(room);
     }
 
     @Override
     public void onPeerInvitedToRoom(Room room, List<String> arg1) {
+        Log.d(TAG, "onPeerInvitedToRoom(" + arg1.get(0) + ")");
         updateRoom(room);
     }
 
     @Override
     public void onPeerJoined(Room room, List<String> arg1) {
+        Log.d(TAG, "onPeerJoined(" + arg1.get(0) + ")");
         updateRoom(room);
     }
 
     @Override
     public void onPeerLeft(Room room, List<String> peersWhoLeft) {
+        Log.d(TAG, "onPeerLeft(" + peersWhoLeft.get(0) + ")");
         updateRoom(room);
     }
 
     @Override
     public void onRoomAutoMatching(Room room) {
+        Log.d(TAG, "onRoomAutoMatching()");
         updateRoom(room);
     }
 
     @Override
     public void onRoomConnecting(Room room) {
+        Log.d(TAG, "onRoomConnecting()");
         updateRoom(room);
     }
 
     @Override
     public void onPeersConnected(Room room, List<String> peers) {
+        Log.d(TAG, "onPeersConnected(" + peers.get(0) + ")");
         updateRoom(room);
     }
 
     @Override
     public void onPeersDisconnected(Room room, List<String> peers) {
+        Log.d(TAG, "onPeersDisconnected(" + peers.get(0) + ")");
         updateRoom(room);
     }
 
     void updateRoom(Room room) {
-        mParticipants = room.getParticipants();
-        updatePeerScoresDisplay();
+        createParticipantInfos(room);
+        updateUi();
     }
 
     /*
@@ -543,79 +470,35 @@ public class MainActivity extends BaseGameActivity
      */
 
     // Current state of the game:
-    int mSecondsLeft = -1; // how long until the game ends (seconds)
-    final static int GAME_DURATION = 20; // game duration, seconds.
-    int mScore = 0; // user's current score
+    private HashMap<String, ParticipantInfo> mParticipantInfos = new HashMap<String, ParticipantInfo>();
+    private boolean mPingReliable = true;
 
     // Reset game variables in preparation for a new game.
     void resetGameVars() {
-        mSecondsLeft = GAME_DURATION;
-        mScore = 0;
-        mParticipantScore.clear();
-        mFinishedParticipants.clear();
+        mPingReliable = true;
     }
 
-    // Start the gameplay phase of the game.
-    void startGame(boolean multiplayer) {
-        mMultiplayer = multiplayer;
-        updateScoreDisplay();
-        broadcastScore(false);
+    void startPinging() {
         switchToScreen(R.id.screen_game);
-
-        findViewById(R.id.button_click_me).setVisibility(View.VISIBLE);
 
         // run the gameTick() method every second to update the game.
         final Handler h = new Handler();
         h.postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (mSecondsLeft <= 0)
+                if (mRoomId == null) {
                     return;
-                gameTick();
+                }
+                pingEveryone();
                 h.postDelayed(this, 1000);
             }
         }, 1000);
-    }
-
-    // Game tick -- update countdown, check if game ended.
-    void gameTick() {
-        if (mSecondsLeft > 0)
-            --mSecondsLeft;
-
-        // update countdown
-        ((TextView) findViewById(R.id.countdown)).setText("0:" +
-                (mSecondsLeft < 10 ? "0" : "") + String.valueOf(mSecondsLeft));
-
-        if (mSecondsLeft <= 0) {
-            // finish game
-            findViewById(R.id.button_click_me).setVisibility(View.GONE);
-            broadcastScore(true);
-        }
-    }
-
-    // indicates the player scored one point
-    void scoreOnePoint() {
-        if (mSecondsLeft <= 0)
-            return; // too late!
-        ++mScore;
-        updateScoreDisplay();
-        updatePeerScoresDisplay();
-
-        // broadcast our new score to our peers
-        broadcastScore(false);
     }
 
     /*
      * COMMUNICATIONS SECTION. Methods that implement the game's network
      * protocol.
      */
-
-    // Score of other participants. We update this as we receive their scores
-    // from the network.
-    Map<String, Integer> mParticipantScore = new HashMap<String, Integer>();
-
-    // Participants who sent us their final score.
-    Set<String> mFinishedParticipants = new HashSet<String>();
 
     // Called when we receive a real-time message from the network.
     // Messages in our game are made up of 2 bytes: the first one is 'F' or 'U'
@@ -627,87 +510,72 @@ public class MainActivity extends BaseGameActivity
     public void onRealTimeMessageReceived(RealTimeMessage rtm) {
         byte[] buf = rtm.getMessageData();
         String sender = rtm.getSenderParticipantId();
-        Log.d(TAG, "Message received: " + (char) buf[0] + "/" + (int) buf[1]);
+        Log.d(TAG, "Message received: " + (char) buf[0]);
 
-        if (buf[0] == 'F' || buf[0] == 'U') {
-            // score update.
-            int existingScore = mParticipantScore.containsKey(sender) ?
-                    mParticipantScore.get(sender) : 0;
-            int thisScore = (int) buf[1];
-            if (thisScore > existingScore) {
-                // this check is necessary because packets may arrive out of
-                // order, so we
-                // should only ever consider the highest score we received, as
-                // we know in our
-                // game there is no way to lose points. If there was a way to
-                // lose points,
-                // we'd have to add a "serial number" to the packet.
-                mParticipantScore.put(sender, thisScore);
+        if (buf[0] == 'P') {
+            // we were pinged, respond
+            buf[0] = 'R';
+            if (rtm.isReliable()) {
+                getGamesClient().sendReliableRealTimeMessage(null, buf, mRoomId, sender);
+            } else {
+                getGamesClient().sendUnreliableRealTimeMessage(buf, mRoomId, sender);
             }
+            return;
+        }
 
-            // update the scores on the screen
-            updatePeerScoresDisplay();
+        if (buf[0] == 'R') {
+            long nanoTime = ByteBuffer.wrap(buf).getLong(1);
 
-            // if it's a final score, mark this participant as having finished
-            // the game
-            if ((char) buf[0] == 'F') {
-                mFinishedParticipants.add(rtm.getSenderParticipantId());
+            if (rtm.isReliable()) {
+                mParticipantInfos.get(sender).reliableRtt = System.nanoTime() - nanoTime;
+                mParticipantInfos.get(sender).reliableRepliesReceived++;
+            } else {
+                mParticipantInfos.get(sender).unreliableRtt = System.nanoTime() - nanoTime;
+                mParticipantInfos.get(sender).unreliableRepliesReceived++;
             }
-        } else if (buf[0] == 'S') {
-            // someone else started to play -- so dismiss the waiting room and
-            // get right to it!
-            Log.d(TAG, "Starting game because we got a start message.");
-            dismissWaitingRoom();
-            startGame(true);
+        }
+
+        updateUi();
+    }
+
+    private void updateUi() {
+        TextView tvInstructions = (TextView) findViewById(R.id.instructions);
+        tvInstructions.setText(mPingReliable ? "Pinging: reliable" : "Pinging: unreliable");
+
+        LinearLayout layout = (LinearLayout) findViewById(R.id.rttBox);
+        layout.removeAllViews();
+
+        for (ParticipantInfo p : mParticipantInfos.values()) {
+            TextView tv = new TextView(this);
+            tv.setText(p.participant.getDisplayName() + ": " + p.getReliableInfo() + ", " + p.getUnreliableInfo());
+            layout.addView(tv);
         }
     }
 
-    // Broadcast my score to everybody else.
-    void broadcastScore(boolean finalScore) {
-        if (!mMultiplayer)
-            return; // playing single-player mode
+    void pingEveryone() {
+        mMsgBuf[0] = (byte)'P';
 
-        // First byte in message indicates whether it's a final score or not
-        mMsgBuf[0] = (byte) (finalScore ? 'F' : 'U');
-
-        // Second byte is the score.
-        mMsgBuf[1] = (byte) mScore;
+        long nanoTime = System.nanoTime();
+        ByteBuffer.wrap(mMsgBuf).putLong(1, nanoTime);
 
         // Send to every other participant.
-        for (Participant p : mParticipants) {
-            if (p.getParticipantId().equals(mMyId))
+        for (ParticipantInfo p : mParticipantInfos.values()) {
+            if (p.participant.getParticipantId().equals(mMyId))
                 continue;
-            if (p.getStatus() != Participant.STATUS_JOINED)
+            if (p.participant.getStatus() != Participant.STATUS_JOINED)
                 continue;
-            if (finalScore) {
-                // final score notification must be sent via reliable message
-                getGamesClient().sendReliableRealTimeMessage(null, mMsgBuf, mRoomId,
-                        p.getParticipantId());
+
+            if (mPingReliable) {
+                getGamesClient().sendReliableRealTimeMessage(null, mMsgBuf, mRoomId, p.participant.getParticipantId());
+                p.reliablePacketsSent++;
             } else {
-                // it's an interim score notification, so we can use unreliable
-                getGamesClient().sendUnreliableRealTimeMessage(mMsgBuf, mRoomId,
-                        p.getParticipantId());
+                getGamesClient().sendUnreliableRealTimeMessage(mMsgBuf, mRoomId, p.participant.getParticipantId());
+                p.unreliablePacketsSent++;
             }
         }
-    }
 
-    // Broadcast a message indicating that we're starting to play. Everyone else
-    // will react
-    // by dismissing their waiting room UIs and starting to play too.
-    void broadcastStart() {
-        if (!mMultiplayer)
-            return; // playing single-player mode
-
-        mMsgBuf[0] = 'S';
-        mMsgBuf[1] = (byte) 0;
-        for (Participant p : mParticipants) {
-            if (p.getParticipantId().equals(mMyId))
-                continue;
-            if (p.getStatus() != Participant.STATUS_JOINED)
-                continue;
-            getGamesClient().sendReliableRealTimeMessage(null, mMsgBuf, mRoomId,
-                    p.getParticipantId());
-        }
+        mPingReliable = !mPingReliable;
+        updateUi();
     }
 
     /*
@@ -719,8 +587,7 @@ public class MainActivity extends BaseGameActivity
     final static int[] CLICKABLES = {
             R.id.button_accept_popup_invitation, R.id.button_invite_players,
             R.id.button_quick_game, R.id.button_see_invitations, R.id.button_sign_in,
-            R.id.button_sign_out, R.id.button_click_me, R.id.button_single_player,
-            R.id.button_single_player_2
+            R.id.button_sign_out
     };
 
     // This array lists all the individual screens our game has.
@@ -742,9 +609,6 @@ public class MainActivity extends BaseGameActivity
         if (mIncomingInvitationId == null) {
             // no invitation, so no popup
             showInvPopup = false;
-        } else if (mMultiplayer) {
-            // if in multiplayer, only show invitation on main screen
-            showInvPopup = (mCurScreen == R.id.screen_main);
         } else {
             // single-player: show on main screen and gameplay screen
             showInvPopup = (mCurScreen == R.id.screen_main || mCurScreen == R.id.screen_game);
@@ -756,74 +620,9 @@ public class MainActivity extends BaseGameActivity
         switchToScreen(isSignedIn() ? R.id.screen_main : R.id.screen_sign_in);
     }
 
-    // updates the label that shows my score
-    void updateScoreDisplay() {
-        ((TextView) findViewById(R.id.my_score)).setText(formatScore(mScore));
-    }
-
-    // formats a score as a three-digit number
-    String formatScore(int i) {
-        if (i < 0)
-            i = 0;
-        String s = String.valueOf(i);
-        return s.length() == 1 ? "00" + s : s.length() == 2 ? "0" + s : s;
-    }
-
-    // updates the screen with the scores from our peers
-    void updatePeerScoresDisplay() {
-        ((TextView) findViewById(R.id.score0)).setText(formatScore(mScore) + " - Me");
-        int[] arr = {
-                R.id.score1, R.id.score2, R.id.score3
-        };
-        int i = 0;
-
-        if (mRoomId != null) {
-            for (Participant p : mParticipants) {
-                String pid = p.getParticipantId();
-                if (pid.equals(mMyId))
-                    continue;
-                if (p.getStatus() != Participant.STATUS_JOINED)
-                    continue;
-                int score = mParticipantScore.containsKey(pid) ? mParticipantScore.get(pid) : 0;
-                ((TextView) findViewById(arr[i])).setText(formatScore(score) + " - " +
-                        p.getDisplayName());
-                ++i;
-            }
-        }
-
-        for (; i < arr.length; ++i) {
-            ((TextView) findViewById(arr[i])).setText("");
-        }
-    }
-
     /*
      * MISC SECTION. Miscellaneous methods.
      */
-
-    /**
-     * Checks that the developer (that's you!) read the instructions. IMPORTANT:
-     * a method like this SHOULD NOT EXIST in your production app! It merely
-     * exists here to check that anyone running THIS PARTICULAR SAMPLE did what
-     * they were supposed to in order for the sample to work.
-     */
-    boolean verifyPlaceholderIdsReplaced() {
-        final boolean CHECK_PKGNAME = true; // set to false to disable check
-        // (not recommended!)
-
-        // Did the developer forget to change the package name?
-        if (CHECK_PKGNAME && getPackageName().startsWith("com.google.example."))
-            return false;
-
-        // Did the developer forget to replace a placeholder ID?
-        int res_ids[] = new int[] {
-                R.string.app_id
-        };
-        for (int i : res_ids) {
-            if (getString(i).equalsIgnoreCase("ReplaceMe"))
-                return false;
-        }
-        return true;
-    }
 
     // Sets the flag to keep this screen on. It's recommended to do that during
     // the
